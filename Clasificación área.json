@@ -1,0 +1,401 @@
+{
+  "name": "Clasificación área",
+  "nodes": [
+    {
+      "parameters": {
+        "pollTimes": {
+          "item": [
+            {
+              "mode": "everyMinute"
+            }
+          ]
+        },
+        "documentId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "1avgh7bdB-nMxhs5q7M2AJYV5tq0Ev_naSwNA4G4pFbk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "https://docs.google.com/spreadsheets/d/1avgh7bdB-nMxhs5q7M2AJYV5tq0Ev_naSwNA4G4pFbk/edit?gid=0#gid=0",
+          "mode": "url"
+        },
+        "options": {}
+      },
+      "id": "57ab8bc1-a3f8-445a-97af-265a2f0a4783",
+      "name": "Google Sheets Trigger",
+      "type": "n8n-nodes-base.googleSheetsTrigger",
+      "typeVersion": 1,
+      "position": [
+        -736,
+        96
+      ],
+      "credentials": {
+        "googleSheetsTriggerOAuth2Api": {
+          "id": "IdxZH0aq2bVxd1Uu",
+          "name": "Google Sheets Trigger account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const item = $input.first().json;\n\nconst adminEmail = 'valeriayashan@gmail.com';\n\nfunction isValidEmail(email) {\n  if (!email) return false;\n  const s = String(email).trim();\n  return s.includes('@') && s.includes('.') && s.length >= 6;\n}\n\nconst email = String(item.Email ?? '').trim();\nconst nombre = String(item.Nombre ?? '').trim();\nconst motivo = String(item.Motivo ?? '').trim();\nconst mensaje = String(item.Mensaje ?? '').trim();\n\nreturn [{\n  json: {\n    ...item,\n    Email: email,\n    Nombre: nombre,\n    Motivo: motivo,\n    Mensaje: mensaje,\n    adminEmail,\n    emailValid: isValidEmail(email),\n    rowNumber: item.rowNumber\n  }\n}];"
+      },
+      "id": "c9aed751-c496-4551-8bc4-dafe88f02e92",
+      "name": "Code - Normalizar",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -496,
+        96
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "1125383c-41b5-4b79-9460-74d94f5309a0",
+              "leftValue": "",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "d2f3f39a-31ed-4945-a5fc-eefb77b1e92f",
+      "name": "IF - Email v�lido",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        -256,
+        96
+      ]
+    },
+    {
+      "parameters": {
+        "sendTo": "valeriayashan@gmail.com",
+        "subject": "={{'Recibimos tu solicitud' + ($json.Motivo ? ' - ' + $json.Motivo : '')}}",
+        "message": "={{'Hola ' + ($json.Nombre || '') + ',\\n\\nRecibimos tu solicitud.\\n\\nMotivo: ' + ($json.Motivo || '-') + '\\nMensaje: ' + ($json.Mensaje || '-') + '\\n\\nTe vamos a responder a la brevedad.\\n\\nGracias.\\n'}}",
+        "options": {}
+      },
+      "id": "9a8edc17-cfe4-47fb-b424-2de198086546",
+      "name": "Gmail - Confirmaci�n Cliente",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2,
+      "position": [
+        0,
+        0
+      ],
+      "webhookId": "200d80b9-1eef-4169-9f69-481ac4a3b5d2",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "kdCIwD3bfhLJLCNL",
+          "name": "Gmail account"
+        }
+      },
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{!!$json.error}}",
+              "operation": "isTrue"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "947cb89b-6955-4115-ac6e-02ddc1d9a6c9",
+      "name": "IF - Error Gmail Cliente",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        240,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "sendTo": "valeriayashan@gmail.com",
+        "subject": "={{'[Solicitud] Nueva respuesta - ' + ($json.Motivo || 'Sin motivo')}}",
+        "message": "={{'Nueva solicitud recibida:\\n\\nTimestamp: ' + ($json.Timestamp || '-') + '\\nNombre: ' + ($json.Nombre || '-') + '\\nEmail: ' + ($json.Email || '-') + '\\nMotivo: ' + ($json.Motivo || '-') + '\\nMensaje: ' + ($json.Mensaje || '-') + '\\n\\nEstado actual: ' + ($json.Estado || '-') + '\\n'}}",
+        "options": {}
+      },
+      "id": "1aa15ced-6f0a-446a-956f-075606dd7da3",
+      "name": "Gmail - Aviso Interno",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2,
+      "position": [
+        480,
+        0
+      ],
+      "webhookId": "f317ff47-eaa5-482a-b71b-1363f36bfc10",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "kdCIwD3bfhLJLCNL",
+          "name": "Gmail account"
+        }
+      },
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{!!$json.error}}",
+              "operation": "isTrue"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "d6ed0c1d-2f30-47fb-b933-f38fdd5b9215",
+      "name": "IF - Error Gmail Interno",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        720,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": "1avgh7bdB-nMxhs5q7M2AJYV5tq0Ev_naSwNA4G4pFbk",
+        "sheetName": "Hoja 1",
+        "options": {}
+      },
+      "id": "79de57d2-fdc8-4a09-b1bb-f4687594a083",
+      "name": "Google Sheets - Marcar Confirmado",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4,
+      "position": [
+        960,
+        0
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "kKEAdNueADoOW1Yd",
+          "name": "Google Sheets account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": "1avgh7bdB-nMxhs5q7M2AJYV5tq0Ev_naSwNA4G4pFbk",
+        "sheetName": "Hoja 1",
+        "options": {}
+      },
+      "id": "ece97fd7-6c17-4b97-b782-1c7d6b8c2309",
+      "name": "Google Sheets - Error Interno",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4,
+      "position": [
+        960,
+        176
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "kKEAdNueADoOW1Yd",
+          "name": "Google Sheets account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sendTo": "valeriayashan@gmail.com",
+        "subject": "={{'[Solicitud] Email inv�lido - ' + ($json.Nombre || 'Sin nombre')}}",
+        "message": "={{'Se recibi� una solicitud con Email inv�lido.\\n\\nTimestamp: ' + ($json.Timestamp || '-') + '\\nNombre: ' + ($json.Nombre || '-') + '\\nEmail: ' + ($json.Email || '-') + '\\nMotivo: ' + ($json.Motivo || '-') + '\\nMensaje: ' + ($json.Mensaje || '-') + '\\n'}}",
+        "options": {}
+      },
+      "id": "757f7e0a-f038-4438-bb8d-78e31f346fb4",
+      "name": "Gmail - Aviso Interno (Email inv�lido)",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2,
+      "position": [
+        0,
+        256
+      ],
+      "webhookId": "6f414d2f-7ede-4f2b-bc8d-dfea7565f386",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "kdCIwD3bfhLJLCNL",
+          "name": "Gmail account"
+        }
+      },
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "value": "1avgh7bdB-nMxhs5q7M2AJYV5tq0Ev_naSwNA4G4pFbk",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Hoja 1",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "id": "c040924f-669d-4504-8b96-d387906b165d",
+      "name": "Google Sheets - Marcar Email inv�lido",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4,
+      "position": [
+        240,
+        256
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "kKEAdNueADoOW1Yd",
+          "name": "Google Sheets account 2"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Google Sheets Trigger": {
+      "main": [
+        [
+          {
+            "node": "Code - Normalizar",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code - Normalizar": {
+      "main": [
+        [
+          {
+            "node": "IF - Email v�lido",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF - Email v�lido": {
+      "main": [
+        [
+          {
+            "node": "Gmail - Confirmaci�n Cliente",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Gmail - Aviso Interno (Email inv�lido)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gmail - Confirmaci�n Cliente": {
+      "main": [
+        [
+          {
+            "node": "IF - Error Gmail Cliente",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF - Error Gmail Cliente": {
+      "main": [
+        [],
+        [
+          {
+            "node": "Gmail - Aviso Interno",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gmail - Aviso Interno": {
+      "main": [
+        [
+          {
+            "node": "IF - Error Gmail Interno",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF - Error Gmail Interno": {
+      "main": [
+        [
+          {
+            "node": "Google Sheets - Error Interno",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Google Sheets - Marcar Confirmado",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gmail - Aviso Interno (Email inv�lido)": {
+      "main": [
+        [
+          {
+            "node": "Google Sheets - Marcar Email inv�lido",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "44eab0ca-abab-4c64-9859-ca5b211a3cdd",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "72d43304f27a5fc27696d9e2f30de2c83c79d7ac2f3ac3041823785527b7b505"
+  },
+  "id": "GB2gDsuXltJEkdXr",
+  "tags": []
+}
