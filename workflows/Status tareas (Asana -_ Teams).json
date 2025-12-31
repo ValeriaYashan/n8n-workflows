@@ -1,0 +1,180 @@
+{
+  "name": "Status tareas (Asana -> Teams)",
+  "nodes": [
+    {
+      "parameters": {
+        "triggerTimes": {
+          "item": [
+            {
+              "mode": "everyWeek",
+              "hour": 9,
+              "weekday": "1,2,3,4,5"
+            }
+          ]
+        }
+      },
+      "id": "a274db6c-6c55-499a-a640-e2ea73588a66",
+      "name": "Cron",
+      "type": "n8n-nodes-base.cron",
+      "typeVersion": 1,
+      "position": [
+        -1168,
+        48
+      ]
+    },
+    {
+      "parameters": {
+        "url": "=https://app.asana.com/api/1.0/tasks",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "project",
+              "value": "={{$env.ASANA_PROJECT_ID}}"
+            },
+            {
+              "name": "completed_since",
+              "value": "now"
+            },
+            {
+              "name": "opt_fields",
+              "value": "name,due_on,completed,assignee.name,permalink_url"
+            },
+            {
+              "name": "limit",
+              "value": "100"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{$env.ASANA_TOKEN}}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "3f7bdc19-2299-4633-a1a8-993b323b72c1",
+      "name": "HTTP Request",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        -928,
+        48
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const tz = $env.TIMEZONE || 'America/Argentina/Buenos_Aires';\nconst today = new Date().toLocaleDateString('en-CA', { timeZone: tz }); // YYYY-MM-DD\n\nconst data = items?.[0]?.json?.data ?? [];\n\nconst overdue = data.filter(t => {\n  const due = t.due_on;\n  const completed = !!t.completed;\n  return !completed && !!due && due < today;\n});\n\nconst groups = {};\nfor (const t of overdue) {\n  const owner = t?.assignee?.name || 'Sin responsable';\n  if (!groups[owner]) groups[owner] = [];\n  groups[owner].push(t);\n}\n\nlet message = `📌 *Tareas vencidas* (hoy: ${today})\\n`;\nif (overdue.length === 0) {\n  message += '\\n✅ No hay tareas vencidas.';\n} else {\n  for (const [owner, list] of Object.entries(groups)) {\n    message += `\\n*${owner}* (${list.length})\\n`;\n    message += list.map(x => `- ${x.name} (venció ${x.due_on}) ${x.permalink_url || ''}`.trim()).join('\\n');\n    message += '\\n';\n  }\n}\n\nreturn [{ json: { today, totalOverdue: overdue.length, message } }];"
+      },
+      "id": "3141f896-7bbb-4f60-8706-38d47dbaf050",
+      "name": "Code",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -688,
+        48
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "number": [
+            {
+              "value1": "={{$json.totalOverdue}}",
+              "operation": "larger",
+              "value2": 0
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "baf11045-58d6-49e2-9058-fbc5bfc168b4",
+      "name": "IF",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        -448,
+        48
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "channelMessage",
+        "teamId": "={{$env.TEAMS_TEAM_ID}}",
+        "channelId": "={{$env.TEAMS_CHANNEL_ID}}",
+        "message": "={{$json.message}}",
+        "options": {}
+      },
+      "id": "1a6155d2-25b7-4a4b-9ae6-aac4268bceb3",
+      "name": "Microsoft Teams",
+      "type": "n8n-nodes-base.microsoftTeams",
+      "typeVersion": 2,
+      "position": [
+        -208,
+        -16
+      ],
+      "webhookId": "7421e626-4b39-40cd-b345-b04da0333ff8"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Cron": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request": {
+      "main": [
+        [
+          {
+            "node": "Code",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code": {
+      "main": [
+        [
+          {
+            "node": "IF",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF": {
+      "main": [
+        [
+          {
+            "node": "Microsoft Teams",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "78b394ca-1959-42ac-ab98-c146bdab4370",
+  "meta": {
+    "instanceId": "72d43304f27a5fc27696d9e2f30de2c83c79d7ac2f3ac3041823785527b7b505"
+  },
+  "id": "l53XnmDbvgYbmGpk",
+  "tags": []
+}

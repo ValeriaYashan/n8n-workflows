@@ -1,0 +1,135 @@
+{
+  "name": "Cumpleaños (sheets + gmail)",
+  "nodes": [
+    {
+      "parameters": {
+        "triggerTimes": {
+          "item": [
+            {},
+            {}
+          ]
+        }
+      },
+      "name": "Trigger Diario",
+      "type": "n8n-nodes-base.cron",
+      "typeVersion": 1,
+      "position": [
+        32,
+        48
+      ],
+      "id": "9ddbd667-00de-473f-b244-f0cad6c9caca"
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "https://docs.google.com/spreadsheets/d/1sHGpDoc3zuogTaVCfZ-6nr4OOWtZnhF9h_eWqqByXd0/edit?gid=0#gid=0",
+          "mode": "url"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Hoja 1",
+          "mode": "name"
+        },
+        "options": {}
+      },
+      "name": "Get Many Rows",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 3,
+      "position": [
+        240,
+        48
+      ],
+      "id": "c9d00ccf-c41f-449c-a18a-3b3f127294e2",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "kKEAdNueADoOW1Yd",
+          "name": "Google Sheets account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "functionCode": "const today = new Date();\nconst month = (today.getMonth() + 1).toString().padStart(2, '0');\nconst day = today.getDate().toString().padStart(2, '0');\n\nreturn items.filter(item => {\n  const birthday = item.json['Fecha Cumpleaños'];\n  return birthday === `${month}-${day}`;\n});"
+      },
+      "name": "Filtrar Cumpleaños de Hoy",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [
+        432,
+        48
+      ],
+      "id": "067e406c-f8b2-486b-b388-fe8ff49360dd"
+    },
+    {
+      "parameters": {
+        "fromEmail": "tu@correo.com",
+        "toEmail": "={{$json[\"Email\"]}}",
+        "subject": "Feliz cumpleaños, {{$json[\"Nombre\"]}} 🎉",
+        "text": "Hola {{$json[\"Nombre\"]}},\n\n¡Todo el equipo te desea un muy feliz cumpleaños! 🎂🎉\nQue tengas un día espectacular 😄\n\n— Tu equipo",
+        "options": {}
+      },
+      "name": "Enviar Email",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 1,
+      "position": [
+        640,
+        48
+      ],
+      "id": "8ed593dd-b7b1-4bda-85a3-3f83a796b2ec",
+      "credentials": {
+        "smtp": {
+          "id": null,
+          "name": "Email Cumpleaños"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Trigger Diario": {
+      "main": [
+        [
+          {
+            "node": "Get Many Rows",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Many Rows": {
+      "main": [
+        [
+          {
+            "node": "Filtrar Cumpleaños de Hoy",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filtrar Cumpleaños de Hoy": {
+      "main": [
+        [
+          {
+            "node": "Enviar Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "a225cf70-71b4-4fe1-a480-cfe13c932e42",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "72d43304f27a5fc27696d9e2f30de2c83c79d7ac2f3ac3041823785527b7b505"
+  },
+  "id": "Sy2I981sgW15oPQu",
+  "tags": []
+}

@@ -1,0 +1,471 @@
+{
+  "name": "Etapa1_ResumenTareas_v2",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "1dee868b-a29f-4ba9-b6a1-a8bdc02fcde1",
+      "name": "Error Trigger",
+      "type": "n8n-nodes-base.errorTrigger",
+      "typeVersion": 1,
+      "position": [
+        -2528,
+        144
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// ClassifyError\nconst errorData = $input.first().json;\n\nconst workflowName = errorData.workflow?.name || 'Unknown';\nconst nodeName = errorData.node?.name || 'Unknown';\nconst errorMessage = errorData.error?.message || 'No message';\nconst httpCode = errorData.error?.httpCode;\nconst executionId = errorData.execution?.id;\nconst timestamp = new Date().toISOString();\n\nconst isRetryable = [408, 429, 500, 502, 503, 504].includes(httpCode);\nconst isClientError = httpCode >= 400 && httpCode < 500;\nconst isServerError = httpCode >= 500;\n\nlet severity = 'low';\nif (isServerError || !httpCode) severity = 'high';\nelse if (isRetryable) severity = 'medium';\n\nconst shouldAlert = severity === 'high' || (errorData.execution?.retryOf && severity === 'medium');\n\nconst crypto = require('crypto');\nconst errorHash = crypto\n  .createHash('md5')\n  .update(workflowName + nodeName + errorMessage)\n  .digest('hex')\n  .slice(0, 8);\n\nreturn [{\n  json: {\n    timestamp,\n    workflowName,\n    nodeName,\n    errorMessage: String(errorMessage).slice(0, 500),\n    httpCode: httpCode ?? 'N/A',\n    executionId: executionId ?? 'N/A',\n    executionUrl: errorData.execution?.url || 'N/A',\n    isRetryable,\n    severity,\n    shouldAlert,\n    errorType: isClientError ? 'client_error' : isServerError ? 'server_error' : 'other',\n    errorHash\n  }\n}];\n"
+      },
+      "id": "9730c78e-950c-4a06-af77-153e7110a076",
+      "name": "Code - ClassifyError",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -2208,
+        144
+      ]
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "https://docs.google.com/spreadsheets/d/1yUPpakpfJ48bcXxuUjilhlDxvPyHpeAk9FguXPQa9vw/edit?gid=0#gid=0",
+          "mode": "url"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Hoja 1",
+          "mode": "name"
+        },
+        "options": {}
+      },
+      "id": "b4fb3468-6a1b-4de8-9091-cb65e9d6d589",
+      "name": "Google Sheets - LogError",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4,
+      "position": [
+        -1856,
+        144
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "F8NDqkoD6lRKTC1j",
+          "name": "Google Sheets account 3"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $json.shouldAlert }}",
+              "value2": true
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "98ee1250-62b4-4260-bbf5-0ed0a9aaa5b8",
+      "name": "IF - ShouldAlert",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        -1424,
+        144
+      ]
+    },
+    {
+      "parameters": {
+        "sendTo": "valeriayashan@gmail.com",
+        "subject": "={{ '?? Workflow Error [' + String($json.severity).toUpperCase() + ']: ' + $json.workflowName }}",
+        "emailType": "text",
+        "message": "={{ 'Error detectado en workflow:\\n\\nWorkflow: ' + $json.workflowName + '\\nNodo: ' + $json.nodeName + '\\nSeveridad: ' + $json.severity + '\\nTipo: ' + $json.errorType + '\\nError: ' + $json.errorMessage + '\\nVer ejecuci�n: ' + $json.executionUrl + '\\nTimestamp: ' + $json.timestamp + '\\nError ID: ' + $json.errorHash + '\\n\\n---\\nEste es un mensaje autom�tico del sistema de monitoreo n8n' }}",
+        "options": {}
+      },
+      "id": "ba0d57b1-ed0c-4cdf-9880-5497bf3ea468",
+      "name": "Gmail Send - AlertTeam",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2,
+      "position": [
+        -912,
+        128
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000,
+      "webhookId": "2c4b8e0e-9c1f-4940-987e-d161c489f2c9",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "kdCIwD3bfhLJLCNL",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 8 * * *"
+            }
+          ]
+        }
+      },
+      "id": "5dcd24d9-cee0-40d2-a5a6-2b95c1c95c01",
+      "name": "Schedule Daily 08:00",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1,
+      "position": [
+        -2480,
+        -144
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 300000
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "=https://docs.google.com/spreadsheets/d/1yUPpakpfJ48bcXxuUjilhlDxvPyHpeAk9FguXPQa9vw/edit?gid=0#gid=0",
+          "mode": "url"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Hoja 1",
+          "mode": "name"
+        },
+        "options": {}
+      },
+      "id": "c84d6372-84f0-472e-b393-c19aefe9d3ad",
+      "name": "Google Sheets - Read Tasks",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4,
+      "position": [
+        -2240,
+        -144
+      ],
+      "retryOnFail": true,
+      "maxTries": 5,
+      "waitBetweenTries": 5000,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "F8NDqkoD6lRKTC1j",
+          "name": "Google Sheets account 3"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// ValidateAndClean v2.1 (SIN luxon)\n// Valida schema y limpia datos de entrada usando JS nativo\n\nfunction isISODate(value) {\n  const s = String(value ?? '').trim();\n  // Acepta YYYY-MM-DD o YYYY-MM-DDTHH:mm:ss...\n  const m = s.match(/^(\\d{4})-(\\d{2})-(\\d{2})/);\n  if (!m) return { ok: false, isoDate: null };\n\n  const y = Number(m[1]);\n  const mo = Number(m[2]);\n  const d = Number(m[3]);\n\n  // Validación calendario real\n  const dt = new Date(Date.UTC(y, mo - 1, d));\n  const ok =\n    dt.getUTCFullYear() === y &&\n    dt.getUTCMonth() === mo - 1 &&\n    dt.getUTCDate() === d;\n\n  return { ok, isoDate: ok ? `${m[1]}-${m[2]}-${m[3]}` : null };\n}\n\n// Schema de validación (usa EXACTAMENTE estos nombres de columnas)\nconst schema = {\n  id: { type: 'string|number', required: false },\n  titulo: { type: 'string', required: true, maxLength: 200 },\n  descripcion: { type: 'string', required: false, maxLength: 1000 },\n  fecha_vencimiento: { type: 'date', required: false },\n  estado: { type: 'enum', values: ['pendiente', 'en_proceso', 'hecho', 'completado'], required: false }\n};\n\nfunction validateField(value, fieldSchema, fieldName) {\n  const errors = [];\n\n  // Required check\n  if (fieldSchema.required && (value === null || value === undefined || value === '')) {\n    errors.push(`${fieldName} es requerido`);\n    return { valid: false, errors };\n  }\n\n  // Si no es requerido y está vacío, es válido\n  if ((value === null || value === undefined || value === '') && !fieldSchema.required) {\n    return { valid: true, errors: [] };\n  }\n\n  // Type validation\n  const types = fieldSchema.type.split('|');\n  let typeValid = false;\n\n  if (types.includes('string')) {\n    typeValid = typeof value === 'string';\n    if (typeValid && fieldSchema.maxLength && value.length > fieldSchema.maxLength) {\n      errors.push(`${fieldName} excede longitud máxima de ${fieldSchema.maxLength}`);\n    }\n  }\n\n  if (types.includes('number')) {\n    typeValid = typeValid || !isNaN(Number(value));\n  }\n\n  if (types.includes('date')) {\n    const chk = isISODate(value);\n    typeValid = typeValid || chk.ok;\n  }\n\n  if (types.includes('enum')) {\n    typeValid = typeValid || fieldSchema.values.includes(String(value).toLowerCase());\n  }\n\n  if (!typeValid) errors.push(`${fieldName} tiene tipo inválido`);\n  return { valid: errors.length === 0, errors };\n}\n\n// Procesar items\nconst validated = [];\nconst invalid = [];\nlet validCount = 0;\nlet invalidCount = 0;\n\n// Obtener todos los items\nconst inputItems = $input.all();\n\nfor (let i = 0; i < inputItems.length; i++) {\n  const row = inputItems[i].json;\n  const validationErrors = [];\n  const cleanedData = {};\n\n  for (const [fieldName, fieldSchema] of Object.entries(schema)) {\n    const rawValue = row[fieldName];\n    const validation = validateField(rawValue, fieldSchema, fieldName);\n    if (!validation.valid) validationErrors.push(...validation.errors);\n\n    // Limpiar y normalizar datos\n    if (fieldName === 'titulo') {\n      cleanedData[fieldName] = rawValue ? String(rawValue).trim().slice(0, 200) : 'Sin título';\n    } else if (fieldName === 'descripcion') {\n      cleanedData[fieldName] = rawValue ? String(rawValue).trim().slice(0, 1000) : '';\n    } else if (fieldName === 'fecha_vencimiento') {\n      if (rawValue) {\n        const chk = isISODate(rawValue);\n        cleanedData[fieldName] = chk.ok ? chk.isoDate : null;\n      } else {\n        cleanedData[fieldName] = null;\n      }\n    } else if (fieldName === 'estado') {\n      cleanedData[fieldName] = rawValue ? String(rawValue).toLowerCase() : 'pendiente';\n    } else {\n      cleanedData[fieldName] = rawValue;\n    }\n  }\n\n  cleanedData._validation = {\n    isValid: validationErrors.length === 0,\n    errors: validationErrors,\n    originalIndex: i,\n    validatedAt: new Date().toISOString()\n  };\n\n  if (validationErrors.length === 0) {\n    validated.push({ json: cleanedData, pairedItem: { item: i } });\n    validCount++;\n  } else {\n    invalid.push({\n      json: { ...cleanedData, _originalData: row },\n      pairedItem: { item: i }\n    });\n    invalidCount++;\n  }\n}\n\nconsole.log(`✅ Validación completada: ${validCount} válidos, ${invalidCount} inválidos`);\n\n// Si no hay datos válidos, retornar metadata de error\nif (validated.length === 0) {\n  return [{\n    json: {\n      hasValidData: false,\n      validCount: 0,\n      invalidCount,\n      invalidItems: invalid.map(i => ({\n        data: i.json._originalData,\n        errors: i.json._validation.errors\n      })).slice(0, 5),\n      message: 'No se encontraron tareas válidas para procesar'\n    }\n  }];\n}\n\n// Retornar datos válidos con metadata\nreturn [{\n  json: {\n    hasValidData: true,\n    validCount,\n    invalidCount,\n    tasks: validated.map(v => v.json),\n    processedAt: new Date().toISOString()\n  }\n}];\n\n"
+      },
+      "id": "e10de546-be9a-4363-b1d0-da8d1d48c4e7",
+      "name": "ValidateAndClean",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -2000,
+        -144
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $json.hasValidData }}",
+              "value2": true
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "b2a94c39-bcc2-4a94-9608-8b8ddbc4bcdc",
+      "name": "IF - Has Valid Data",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        -1760,
+        -144
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// FilterTodayPending v2.1 (SIN luxon)\n// Filtra tareas pendientes o que vencen hoy\n\nfunction todayISO() {\n  const now = new Date();\n  const y = now.getFullYear();\n  const m = String(now.getMonth() + 1).padStart(2, '0');\n  const d = String(now.getDate()).padStart(2, '0');\n  return `${y}-${m}-${d}`;\n}\n\nconst today = todayISO();\n\n// Entrada esperada desde ValidateAndClean:\n// { hasValidData: true, tasks: [...] }\nconst data = $input.first().json;\nconst allTasks = data.tasks || [];\n\n// Regla de filtrado:\n// - Excluir: estado = hecho / completado\n// - Incluir si: vence hoy OR estado = pendiente (aunque no tenga fecha)\nconst filteredTasks = allTasks.filter((task) => {\n  const fechaVencimiento = task.fecha_vencimiento;\n  const estado = (task.estado || '').toLowerCase();\n\n  if (estado === 'hecho' || estado === 'completado') return false;\n\n  return fechaVencimiento === today || estado === 'pendiente';\n});\n\nconsole.log(`📋 Filtrado: ${filteredTasks.length} de ${allTasks.length} tareas`);\n\nif (filteredTasks.length === 0) {\n  return [{\n    json: {\n      hasTasks: false,\n      today,\n      taskCount: 0,\n      emailBody: `📭 No hay tareas pendientes para ${today}\\n\\n¡Buen trabajo! 🎉`,\n      tasks: []\n    }\n  }];\n}\n\nreturn [{\n  json: {\n    hasTasks: true,\n    today,\n    taskCount: filteredTasks.length,\n    tasks: filteredTasks,\n    metadata: {\n      totalScanned: allTasks.length,\n      filtered: filteredTasks.length,\n      filteredAt: new Date().toISOString()\n    }\n  }\n}];\n"
+      },
+      "id": "67c37bfb-9746-40c3-93af-77c7a84b90f2",
+      "name": "FilterTodayPending",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1520,
+        -240
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// BuildEmailBody v2.1 (SIN luxon)\n// Construye el cuerpo del email con formato profesional\n\nfunction todayISO() {\n  const now = new Date();\n  const y = now.getFullYear();\n  const m = String(now.getMonth() + 1).padStart(2, '0');\n  const d = String(now.getDate()).padStart(2, '0');\n  return `${y}-${m}-${d}`;\n}\n\nconst data = $input.first().json;\nconst today = data.today || todayISO();\nconst tasks = data.tasks || [];\nconst hasTasks = data.hasTasks !== false;\n\n// Si no hay tareas, email simple\nif (!hasTasks || tasks.length === 0) {\n  return [{\n    json: {\n      today,\n      subject: `📭 Resumen de tareas - ${today}`,\n      emailBody: data.emailBody || `No hay tareas pendientes para ${today}`,\n      taskCount: 0,\n      priority: 'low',\n      metadata: {\n        vencenHoy: 0,\n        otras: 0,\n        generatedAt: new Date().toISOString()\n      }\n    }\n  }];\n}\n\n// Construir email con formato\nconst lines = [];\n\n// Header\nlines.push(`📋 Resumen de Tareas para ${today}`);\nlines.push(`═══════════════════════════════════════\\n`);\n\n// Agrupar por prioridad implícita (vence hoy = más importante)\nconst vencenHoy = tasks.filter(t => t.fecha_vencimiento === today);\nconst otras = tasks.filter(t => t.fecha_vencimiento !== today);\n\n// Tareas que vencen hoy\nif (vencenHoy.length > 0) {\n  lines.push(`🔴 VENCEN HOY (${vencenHoy.length})`);\n  lines.push(`───────────────────────────────────────`);\n  vencenHoy.forEach((task, idx) => {\n    lines.push(`${idx + 1}. ${task.titulo || 'Sin título'}`);\n    if (task.descripcion) {\n      const desc = String(task.descripcion);\n      lines.push(` └─ ${desc.slice(0, 100)}${desc.length > 100 ? '...' : ''}`);\n    }\n    lines.push(` └─ Estado: ${task.estado || 'pendiente'}\\n`);\n  });\n}\n\n// Otras tareas pendientes\nif (otras.length > 0) {\n  lines.push(`📌 OTRAS PENDIENTES (${otras.length})`);\n  lines.push(`───────────────────────────────────────`);\n  otras.forEach((task, idx) => {\n    lines.push(`${idx + 1}. ${task.titulo || 'Sin título'}`);\n    if (task.descripcion) {\n      const desc = String(task.descripcion);\n      lines.push(` └─ ${desc.slice(0, 100)}${desc.length > 100 ? '...' : ''}`);\n    }\n    if (task.fecha_vencimiento) {\n      lines.push(` └─ Vence: ${task.fecha_vencimiento}`);\n    }\n    lines.push(` └─ Estado: ${task.estado || 'pendiente'}\\n`);\n  });\n}\n\n// Footer\nlines.push(`───────────────────────────────────────`);\nlines.push(`📊 Total: ${tasks.length} tarea${tasks.length !== 1 ? 's' : ''} pendiente${tasks.length !== 1 ? 's' : ''}`);\nlines.push(`\\n✨ Que tengas un excelente día!`);\n\nreturn [{\n  json: {\n    today,\n    subject: `📋 Resumen de tareas - ${today} (${tasks.length})`,\n    emailBody: lines.join('\\n'),\n    taskCount: tasks.length,\n    priority: vencenHoy.length > 0 ? 'high' : 'medium',\n    metadata: {\n      vencenHoy: vencenHoy.length,\n      otras: otras.length,\n      generatedAt: new Date().toISOString()\n    }\n  }\n}];\n\n"
+      },
+      "id": "27483812-ac24-4b3c-8f90-3f1e401fb606",
+      "name": "BuildEmailBody",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1056,
+        -416
+      ]
+    },
+    {
+      "parameters": {
+        "sendTo": "valeriayashan@gmail.com",
+        "subject": "={{ $json.subject }}",
+        "emailType": "text",
+        "message": "={{ $json.emailBody }}",
+        "options": {}
+      },
+      "id": "2e1bba23-a7fc-4dff-9a81-52dc7d599d7b",
+      "name": "Gmail - Send Summary",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2,
+      "position": [
+        -880,
+        -240
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000,
+      "webhookId": "e82cc428-e97e-4be1-a2dd-b1036d66aeb0",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "kdCIwD3bfhLJLCNL",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// LogSuccess v2.1\n// Registra ejecución exitosa con métricas (sin dependencias externas)\n\nconst emailData = $input.first().json;\n\n// startedAt puede venir como string; lo convertimos seguro\nconst startedAtMs = $execution?.startedAt ? new Date($execution.startedAt).getTime() : null;\nconst nowMs = Date.now();\n\nconst logEntry = {\n  timestamp: new Date().toISOString(),\n  workflowName: $workflow.name,\n  executionId: $execution.id,\n  eventType: 'execution_success',\n  taskCount: Number(emailData.taskCount ?? 0),\n  priority: emailData.priority || 'low',\n  emailSent: true,\n  subject: emailData.subject || '',\n  // metadata opcional (vencenHoy/otras/etc.)\n  metadata: emailData.metadata || {},\n  executionTimeMs: startedAtMs ? (nowMs - startedAtMs) : null\n};\n\nconsole.log('✅ Ejecución exitosa:', logEntry);\n\nreturn [{\n  json: {\n    ...logEntry,\n    message: `Email enviado exitosamente con ${logEntry.taskCount} tareas`\n  }\n}];\n\n"
+      },
+      "id": "2853cf97-9ca1-4600-9b86-458eb6a1f00a",
+      "name": "LogSuccess",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -656,
+        -240
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// LogValidationError v2.0\nconst data = $input.first().json;\n\nconst logEntry = {\n  timestamp: new Date().toISOString(),\n  workflowName: $workflow.name,\n  executionId: $execution.id,\n  eventType: 'validation_error',\n  validCount: data.validCount || 0,\n  invalidCount: data.invalidCount || 0,\n  message: data.message || 'Datos inv�lidos',\n  sampleErrors: data.invalidItems\n    ? data.invalidItems.slice(0, 3).map(item => ({\n        errors: item.errors,\n        data: JSON.stringify(item.data).slice(0, 200)\n      }))\n    : []\n};\n\nconsole.log('?? Error de validaci�n:', logEntry);\n\nreturn [{ json: logEntry }];\n"
+      },
+      "id": "8f54ceaf-2b7c-43b4-8dbb-70d59b379ec9",
+      "name": "LogValidationError",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1520,
+        -16
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "39d5d549-08af-4814-bf3d-c0f31e911487",
+              "leftValue": "=\n{{ $json.taskCount }}",
+              "rightValue": "0",
+              "operator": {
+                "type": "string",
+                "operation": "notEquals"
+              }
+            },
+            {
+              "id": "9cd71214-6c58-4bc7-86b2-a541eefd8fc1",
+              "leftValue": "={{ $json.hasTasks }}",
+              "rightValue": "false",
+              "operator": {
+                "type": "boolean",
+                "operation": "false",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": "={{ false }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -1312,
+        -240
+      ],
+      "id": "7486118c-0e9b-4944-9f08-a25adf50110e",
+      "name": "If"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Error Trigger": {
+      "main": [
+        [
+          {
+            "node": "Code - ClassifyError",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code - ClassifyError": {
+      "main": [
+        [
+          {
+            "node": "Google Sheets - LogError",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Sheets - LogError": {
+      "main": [
+        [
+          {
+            "node": "IF - ShouldAlert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF - ShouldAlert": {
+      "main": [
+        [
+          {
+            "node": "Gmail Send - AlertTeam",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Schedule Daily 08:00": {
+      "main": [
+        [
+          {
+            "node": "Google Sheets - Read Tasks",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Sheets - Read Tasks": {
+      "main": [
+        [
+          {
+            "node": "ValidateAndClean",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ValidateAndClean": {
+      "main": [
+        [
+          {
+            "node": "IF - Has Valid Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF - Has Valid Data": {
+      "main": [
+        [
+          {
+            "node": "FilterTodayPending",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "LogValidationError",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "FilterTodayPending": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "BuildEmailBody": {
+      "main": [
+        [
+          {
+            "node": "Gmail - Send Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gmail - Send Summary": {
+      "main": [
+        [
+          {
+            "node": "LogSuccess",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "BuildEmailBody",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "8963dbfc-0ce2-4e82-b19e-5b439802c230",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "72d43304f27a5fc27696d9e2f30de2c83c79d7ac2f3ac3041823785527b7b505"
+  },
+  "id": "YZSwnesnp4nIEjSl",
+  "tags": []
+}
